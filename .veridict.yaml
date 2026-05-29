@@ -1,0 +1,11 @@
+# Veridict verifies itself. This is the config its own CI uses.
+commands:
+  tests: "pytest -q"
+  build: null
+  lint: "ruff check ."
+  typecheck: null
+
+required:
+  - tests
+
+timeout: 300

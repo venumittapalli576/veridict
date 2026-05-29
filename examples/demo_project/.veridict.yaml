@@ -1,0 +1,12 @@
+# Config for the demo project. The "tests" command runs the demo's test file,
+# which fails on purpose — so Veridict catches the agent's "all tests pass" claim.
+commands:
+  tests: "python test_calculator.py"
+  build: null
+  lint: null
+  typecheck: null
+
+required:
+  - tests
+
+timeout: 60
