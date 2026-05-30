@@ -7,7 +7,6 @@
 Veridict independently re-checks what an AI agent *claims* it did — and renders a verdict.
 It doesn't trust the transcript. It re-runs the tests, looks at the disk, and asks git.
 
-[![CI](https://github.com/venumittapalli576/veridict/actions/workflows/ci.yml/badge.svg)](https://github.com/venumittapalli576/veridict/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/lint-ruff-261230.svg)](https://github.com/astral-sh/ruff)
@@ -28,8 +27,9 @@ The numbers back it up:
 - **96% of developers** don't fully trust AI-generated code — yet only **~48%** always verify it before committing. ([The New Stack](https://thenewstack.io/agentic-ai-verification-impact/))
 - Agents routinely **claim tests pass when they don't**, and reference files that were never written. ([DEV Community](https://dev.to/moonrunnerkc/ai-coding-agents-lie-about-their-work-outcome-based-verification-catches-it-12b4))
 
-Everyone is shipping *more* autonomous agents. Almost nobody is shipping the **trust layer**
-that catches them. Veridict is that layer.
+As teams ship more autonomous agents, *checking their work* is quietly becoming its own
+category. Veridict takes the minimal end of it: point it at any agent's summary and it tells
+you, claim by claim, what actually holds up — no framework to adopt, no graders to write.
 
 ## What it does
 
@@ -183,6 +183,21 @@ timeout: 300
 
 **veri**fy + ver**dict**. That's the whole job: independently verify, then deliver a verdict.
 
+## Where it fits
+
+"Check the outcome, not the transcript" is an idea that's (rightly) catching on fast — Veridict
+is not the first to argue it. It deliberately occupies the *small* end of the space:
+
+- **Agent-eval platforms** (DeepEval / Confident AI and friends) and **agent-testing frameworks**
+  (e.g. Microsoft's [RAMPART](https://www.microsoft.com/en-us/security/blog/2026/05/20/introducing-rampart-and-clarity-open-source-tools-to-bring-safety-into-agent-development-workflow/))
+  are powerful but heavier — you write graders/tests and wire them into your stack.
+- **Agent orchestrators** increasingly cross-check claims, but only inside their own runtime.
+- **Veridict** is the opposite: one dependency-light CLI you point at *any* agent's summary, after
+  the fact, with zero setup. `pipx install`, pipe the text in, get a verdict. No framework, no lock-in.
+
+The bet is simple: the *simplest possible* version — usable in ten seconds against any agent — is
+the one people actually keep around.
+
 ## Roadmap
 
 - [ ] Publish to PyPI
@@ -193,8 +208,8 @@ timeout: 300
 
 ## Contributing
 
-Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Veridict verifies itself in
-CI (`veridict run`), so it has to practice what it preaches.
+Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Veridict verifies itself
+with `veridict run`, so it has to practice what it preaches.
 
 ## License
 
