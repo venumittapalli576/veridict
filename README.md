@@ -7,6 +7,7 @@
 Veridict independently re-checks what an AI agent *claims* it did — and renders a verdict.
 It doesn't trust the transcript. It re-runs the tests, looks at the disk, and asks git.
 
+[![CI](https://github.com/venumittapalli576/veridict/actions/workflows/ci.yml/badge.svg)](https://github.com/venumittapalli576/veridict/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/lint-ruff-261230.svg)](https://github.com/astral-sh/ruff)
