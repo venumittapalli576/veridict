@@ -5,6 +5,10 @@ commands:
   lint: "ruff check ."
   typecheck: null
 
+checks:
+  no_secrets: true
+  no_new_todos: true
+
 required:
   - tests
 

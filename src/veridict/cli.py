@@ -63,6 +63,9 @@ def check(
     ),
     strict: bool = typer.Option(False, "--strict", help="Exit non-zero if any claim is unverifiable, too."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show captured output for false claims."),
+    diff_base: str | None = typer.Option(
+        None, "--diff-base", help="Git ref to diff against (e.g. origin/main) — scanners check everything added since."
+    ),
 ) -> None:
     """Verify the claims in an AI agent's summary against reality.
 
@@ -78,6 +81,8 @@ def check(
         raise typer.Exit(2)
 
     config, _ = load_config(path)
+    if diff_base:
+        config.diff_base = diff_base
     report = verify_transcript(text, config, str(path))
     _emit(report, json_out, markdown, verbose)
     _finish(report, strict)
@@ -90,6 +95,9 @@ def run(
     markdown: bool = typer.Option(False, "--md", "--markdown", help="Emit the report as Markdown."),
     strict: bool = typer.Option(False, "--strict", help="Treat unconfigured/unverifiable as failure."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show captured output for failed checks."),
+    diff_base: str | None = typer.Option(
+        None, "--diff-base", help="Git ref to diff against (e.g. origin/main) — scanners check everything added since."
+    ),
 ) -> None:
     """Run every configured ground-truth check (a CI / pre-commit gate).
 
@@ -97,6 +105,8 @@ def run(
     build the project.
     """
     config, _ = load_config(path)
+    if diff_base:
+        config.diff_base = diff_base
     report = run_project(config, str(path))
     _emit(report, json_out, markdown, verbose)
     _finish(report, strict)

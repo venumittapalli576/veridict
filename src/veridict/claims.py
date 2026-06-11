@@ -73,6 +73,26 @@ _SIMPLE_PATTERNS: list[tuple[ClaimType, re.Pattern[str]]] = [
         re.compile(r"\bno\s+type\s+errors?\b", re.IGNORECASE),
     ),
     (
+        ClaimType.NO_NEW_TODOS,
+        re.compile(
+            r"\b(?:no\s+(?:new\s+|remaining\s+|outstanding\s+|leftover\s+)?(?:todos?|fixmes?)\b"
+            r"|(?:removed|resolved|cleaned\s+up|addressed)\s+(?:all\s+)?(?:the\s+)?(?:remaining\s+)?(?:todos?|fixmes?)\b"
+            r"|no\s+todos?\s+(?:left|remain(?:ing)?)\b)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        ClaimType.NO_SECRETS,
+        re.compile(
+            r"\b(?:no\s+(?:hard[-\s]?coded\s+)?(?:secrets?|credentials?|api[-\s]?keys?)\b"
+            r"|no\s+(?:secrets?|credentials?|keys?|tokens?)\s+(?:were\s+|are\s+)?"
+            r"(?:committed|exposed|leaked|hard[-\s]?coded|included|added)\b"
+            r"|(?:didn't|did\s+not|haven't|have\s+not)\s+(?:commit|include|add|expose|leak|hard[-\s]?code)\w*\s"
+            r"[^.\n]{0,30}?(?:secrets?|credentials?|api[-\s]?keys?|tokens?)\b)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
         ClaimType.NO_ERRORS,
         re.compile(r"\b(no\s+errors?|error[-\s]free|without\s+(?:any\s+)?errors?|everything\s+works)\b", re.IGNORECASE),
     ),
