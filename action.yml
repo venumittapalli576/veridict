@@ -38,6 +38,14 @@ inputs:
     description: "Fail the job when Veridict's verdict is non-zero (true/false)."
     required: false
     default: "true"
+  pin-config:
+    description: >-
+      Take .veridict.yaml from the diff base instead of the checkout, so a PR
+      (or the agent that wrote it) can't weaken its own verification. Only
+      applies when the base already has the file — a PR that introduces the
+      first config still works. (true/false)
+    required: false
+    default: "true"
   github-token:
     description: "Token used to post the PR comment."
     required: false
@@ -80,6 +88,7 @@ runs:
         VD_TRANSCRIPT: ${{ inputs.transcript }}
         VD_DIFF_BASE: ${{ inputs.diff-base }}
         VD_STRICT: ${{ inputs.strict }}
+        VD_PIN_CONFIG: ${{ inputs.pin-config }}
         VD_PR_BASE: ${{ github.event.pull_request.base.sha }}
       run: |
         set +e
@@ -95,6 +104,18 @@ runs:
           git -C "$VD_PATH" rev-parse --quiet --verify "$base^{commit}" >/dev/null 2>&1 \
             || git -C "$VD_PATH" fetch --quiet --no-tags origin "$base" 2>/dev/null \
             || true
+        fi
+
+        if [ "$VD_PIN_CONFIG" = "true" ] && [ -n "$base" ]; then
+          # The PR under verification must not control its own verifier
+          # config: when the base has one, it wins over the checkout's copy.
+          for f in .veridict.yaml .veridict.yml; do
+            if git -C "$VD_PATH" show "$base:$f" > "${RUNNER_TEMP}/vd-base-config" 2>/dev/null; then
+              cp "${RUNNER_TEMP}/vd-base-config" "$VD_PATH/$f"
+              echo "Pinned $f from the diff base."
+              break
+            fi
+          done
         fi
 
         args=()
