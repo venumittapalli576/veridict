@@ -21,6 +21,7 @@ from veridict.models import (
     Evidence,
     Verdict,
 )
+from veridict.scanners import DiffScan, collect_added_lines, find_new_todos, find_secrets
 
 _MAX_OUTPUT = 2000  # characters of command output kept as evidence
 
@@ -170,6 +171,55 @@ _SLOT_FOR_CLAIM = {
     ClaimType.TYPECHECK_PASSES: "typecheck",
 }
 
+# Built-in diff scanners shared by claims and `veridict run` checks:
+# name -> (finder, what a finding means, what a clean scan means)
+_SCANNERS = {
+    "no_new_todos": (find_new_todos, "added TODO/FIXME markers", "no new TODO/FIXME markers in added lines"),
+    "no_secrets": (find_secrets, "secret-shaped values in added lines", "no secrets detected in added lines"),
+}
+
+_SCANNER_FOR_CLAIM = {
+    ClaimType.NO_NEW_TODOS: "no_new_todos",
+    ClaimType.NO_SECRETS: "no_secrets",
+}
+
+
+def _verify_scanner_claim(claim: Claim, scanner: str, config: Config, cwd: str) -> ClaimResult:
+    find, found_means, clean_means = _SCANNERS[scanner]
+    scan = collect_added_lines(cwd, config.diff_base, config.timeout)
+    if scan.error:
+        return ClaimResult(
+            claim,
+            Verdict.UNVERIFIABLE,
+            Evidence(method="scanned git diff", detail=scan.error),
+        )
+    if not scan.saw_changes:
+        return ClaimResult(
+            claim,
+            Verdict.UNVERIFIABLE,
+            Evidence(
+                method="scanned git diff",
+                detail="working tree clean (changes may already be committed) — "
+                "run before committing, or pass --diff-base",
+            ),
+        )
+    findings = find(scan)
+    if findings:
+        return ClaimResult(
+            claim,
+            Verdict.FALSE,
+            Evidence(
+                method="scanned added lines",
+                detail=f"found {found_means}: {findings[0]}",
+                output="\n".join(findings),
+            ),
+        )
+    return ClaimResult(
+        claim,
+        Verdict.TRUE,
+        Evidence(method="scanned added lines", detail=clean_means),
+    )
+
 
 def verify_claim(claim: Claim, config: Config, cwd: str) -> ClaimResult:
     """Independently verify a single :class:`Claim`."""
@@ -181,6 +231,8 @@ def verify_claim(claim: Claim, config: Config, cwd: str) -> ClaimResult:
         return _verify_file_modified(claim, cwd)
     if claim.type is ClaimType.COMMAND_SUCCEEDS:
         return _verify_command_succeeds(claim, config, cwd)
+    if claim.type in _SCANNER_FOR_CLAIM:
+        return _verify_scanner_claim(claim, _SCANNER_FOR_CLAIM[claim.type], config, cwd)
     # NO_ERRORS and UNKNOWN are too vague to check without guessing.
     return ClaimResult(
         claim,
@@ -190,7 +242,7 @@ def verify_claim(claim: Claim, config: Config, cwd: str) -> ClaimResult:
 
 
 def run_checks(config: Config, cwd: str) -> list[CheckResult]:
-    """Run every configured command and report whether each passed."""
+    """Run every configured command and built-in scanner, reporting each outcome."""
     results: list[CheckResult] = []
     for slot in ("tests", "build", "lint", "typecheck"):
         command = config.command_for(slot)
@@ -212,4 +264,32 @@ def run_checks(config: Config, cwd: str) -> list[CheckResult]:
                 evidence=Evidence(method=f"ran `{command}`", exit_code=code, detail=detail, output=out),
             )
         )
+    results.extend(_run_scanner_checks(config, cwd))
+    return results
+
+
+def _run_scanner_checks(config: Config, cwd: str) -> list[CheckResult]:
+    enabled = [name for name in _SCANNERS if config.checks.get(name)]
+    if not enabled:
+        return []
+    scan: DiffScan = collect_added_lines(cwd, config.diff_base, config.timeout)
+    if scan.error:
+        # Can't diff here (e.g. not a git repo) — same treatment as an
+        # unconfigured command slot: skip rather than invent a verdict.
+        return []
+    results: list[CheckResult] = []
+    for name in enabled:
+        find, found_means, clean_means = _SCANNERS[name]
+        if not scan.saw_changes:
+            evidence = Evidence(method="scanned git diff", detail="working tree clean — nothing new to scan")
+            results.append(CheckResult(name=name, ok=True, required=name in config.required, evidence=evidence))
+            continue
+        findings = find(scan)
+        ok = not findings
+        evidence = Evidence(
+            method="scanned added lines",
+            detail=clean_means if ok else f"found {found_means}: {findings[0]}",
+            output="" if ok else "\n".join(findings),
+        )
+        results.append(CheckResult(name=name, ok=ok, required=name in config.required, evidence=evidence))
     return results

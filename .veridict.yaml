@@ -5,6 +5,12 @@ commands:
   lint: "ruff check ."
   typecheck: null
 
+checks:
+  no_secrets: true
+  # Off for this repo only: the scanner's own pattern definitions and test
+  # fixtures necessarily contain the marker strings it hunts for.
+  no_new_todos: false
+
 required:
   - tests
 

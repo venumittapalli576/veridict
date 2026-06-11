@@ -1,0 +1,158 @@
+name: "Veridict — verify AI agent claims"
+description: >-
+  Don't trust your AI coding agent's summary. Veridict re-runs the checks it
+  claimed passed, scans everything the PR added for secrets and new TODOs,
+  and posts the verdict as a sticky PR comment.
+author: "Venu Mittapalli"
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  path:
+    description: "Directory to verify (where .veridict.yaml lives, or auto-detected)."
+    required: false
+    default: "."
+  transcript:
+    description: >-
+      Optional path to the agent's summary/transcript file. When set, Veridict
+      verifies its claims (`veridict check`); otherwise it runs every
+      configured ground-truth check (`veridict run`).
+    required: false
+    default: ""
+  diff-base:
+    description: >-
+      Git ref the secret/TODO scanners diff against. Defaults to the PR base,
+      so everything the PR adds gets scanned.
+    required: false
+    default: ""
+  strict:
+    description: "Also fail when claims are unverifiable (true/false)."
+    required: false
+    default: "false"
+  comment:
+    description: "Post/update a sticky PR comment with the verdict (true/false)."
+    required: false
+    default: "true"
+  fail-on-false-claims:
+    description: "Fail the job when Veridict's verdict is non-zero (true/false)."
+    required: false
+    default: "true"
+  github-token:
+    description: "Token used to post the PR comment."
+    required: false
+    default: ${{ github.token }}
+  python-version:
+    description: "Python version used to run Veridict."
+    required: false
+    default: "3.12"
+
+outputs:
+  trust-score:
+    description: "Veridict's 0–100 trust score (empty when nothing was scored)."
+    value: ${{ steps.verdict.outputs.score }}
+  exit-code:
+    description: "Veridict's exit code (0 = claims hold up)."
+    value: ${{ steps.verdict.outputs.code }}
+  report-md:
+    description: "Path to the Markdown report."
+    value: ${{ steps.verdict.outputs.md }}
+  report-json:
+    description: "Path to the JSON report."
+    value: ${{ steps.verdict.outputs.json }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install Veridict
+      shell: bash
+      run: python -m pip install --quiet "${{ github.action_path }}"
+
+    - name: Run Veridict
+      id: verdict
+      shell: bash
+      env:
+        VD_PATH: ${{ inputs.path }}
+        VD_TRANSCRIPT: ${{ inputs.transcript }}
+        VD_DIFF_BASE: ${{ inputs.diff-base }}
+        VD_STRICT: ${{ inputs.strict }}
+        VD_PR_BASE: ${{ github.event.pull_request.base.sha }}
+      run: |
+        set +e
+        md="${RUNNER_TEMP}/veridict-report.md"
+        json="${RUNNER_TEMP}/veridict-report.json"
+
+        base="$VD_DIFF_BASE"
+        if [ -z "$base" ] && [ -n "$VD_PR_BASE" ]; then
+          base="$VD_PR_BASE"
+        fi
+        if [ -n "$base" ]; then
+          # Shallow checkouts don't have the base commit — fetch it quietly.
+          git -C "$VD_PATH" rev-parse --quiet --verify "$base^{commit}" >/dev/null 2>&1 \
+            || git -C "$VD_PATH" fetch --quiet --no-tags origin "$base" 2>/dev/null \
+            || true
+        fi
+
+        args=()
+        [ -n "$base" ] && args+=(--diff-base "$base")
+        [ "$VD_STRICT" = "true" ] && args+=(--strict)
+
+        if [ -n "$VD_TRANSCRIPT" ]; then
+          veridict check "$VD_TRANSCRIPT" --path "$VD_PATH" --md --json-file "$json" "${args[@]}" > "$md"
+        else
+          veridict run --path "$VD_PATH" --md --json-file "$json" "${args[@]}" > "$md"
+        fi
+        code=$?
+
+        if [ ! -s "$md" ]; then
+          echo "### ⚠️ Veridict could not produce a report (exit $code)" > "$md"
+        fi
+        score=""
+        if [ -s "$json" ]; then
+          score=$(python -c "import json,sys; s=json.load(open(sys.argv[1]))['trust_score']; print('' if s is None else s)" "$json")
+        fi
+
+        cat "$md" >> "$GITHUB_STEP_SUMMARY"
+        {
+          echo "code=$code"
+          echo "score=$score"
+          echo "md=$md"
+          echo "json=$json"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Post sticky PR comment
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      env:
+        VD_REPORT_MD: ${{ steps.verdict.outputs.md }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs');
+          const marker = '<!-- veridict-report -->';
+          const report = fs.readFileSync(process.env.VD_REPORT_MD, 'utf8');
+          const body = `${marker}\n${report}\n\n<sub>🔎 by <a href="https://github.com/venumittapalli576/veridict">Veridict</a> — don't trust the transcript.</sub>`;
+          const { owner, repo } = context.repo;
+          const issue_number = context.payload.pull_request.number;
+          const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 100 });
+          const existing = comments.find(c => c.body && c.body.startsWith(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+          } else {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+          }
+
+    - name: Enforce verdict
+      if: ${{ inputs.fail-on-false-claims == 'true' }}
+      shell: bash
+      env:
+        VD_CODE: ${{ steps.verdict.outputs.code }}
+      run: |
+        if [ "$VD_CODE" != "0" ]; then
+          echo "Veridict verdict: false claims or failed required checks (exit $VD_CODE)."
+          exit "$VD_CODE"
+        fi

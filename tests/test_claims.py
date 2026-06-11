@@ -47,6 +47,24 @@ def test_version_strings_are_not_files():
     assert file_claims == []
 
 
+def test_detects_no_new_todos():
+    assert ClaimType.NO_NEW_TODOS in _types("There are no TODOs left in the code.")
+    assert ClaimType.NO_NEW_TODOS in _types("Removed all the TODOs.")
+    assert ClaimType.NO_NEW_TODOS in _types("Resolved all remaining FIXMEs.")
+
+
+def test_detects_no_secrets():
+    assert ClaimType.NO_SECRETS in _types("No secrets were committed.")
+    assert ClaimType.NO_SECRETS in _types("There are no hardcoded credentials.")
+    assert ClaimType.NO_SECRETS in _types("I didn't include any API keys in the code.")
+
+
+def test_plain_prose_has_no_scanner_claims():
+    text = "I refactored the parser and tightened the validation logic."
+    assert ClaimType.NO_NEW_TODOS not in _types(text)
+    assert ClaimType.NO_SECRETS not in _types(text)
+
+
 def test_simple_claims_are_deduplicated():
     text = "tests pass\nall tests are passing\nthe tests are green"
     n = sum(1 for c in extract_claims(text) if c.type is ClaimType.TESTS_PASS)

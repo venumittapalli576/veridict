@@ -28,6 +28,8 @@ class ClaimType(str, Enum):
     FILE_EXISTS = "file_exists"
     FILE_MODIFIED = "file_modified"
     COMMAND_SUCCEEDS = "command_succeeds"
+    NO_NEW_TODOS = "no_new_todos"
+    NO_SECRETS = "no_secrets"
     NO_ERRORS = "no_errors"
     UNKNOWN = "unknown"
 

@@ -19,6 +19,13 @@ CONFIG_NAMES = (".veridict.yaml", ".veridict.yml")
 # Command slots Veridict understands. Order matters for display.
 COMMAND_SLOTS = ("tests", "build", "lint", "typecheck")
 
+# Built-in diff scanners (no command needed) and their default enablement.
+BUILTIN_CHECKS = {"no_secrets": True, "no_new_todos": False}
+
+
+def _default_checks() -> dict[str, bool]:
+    return dict(BUILTIN_CHECKS)
+
 
 @dataclass
 class Config:
@@ -26,6 +33,8 @@ class Config:
 
     commands: dict[str, str] = field(default_factory=dict)
     required: list[str] = field(default_factory=list)
+    checks: dict[str, bool] = field(default_factory=_default_checks)
+    diff_base: str | None = None
     timeout: int = 300
 
     def command_for(self, slot: str) -> str | None:
@@ -62,9 +71,18 @@ def load_config(path: Path) -> tuple[Config, Path | None]:
         for slot, value in (raw.get("commands") or {}).items()
         if value  # drop null/empty slots
     }
-    required = [name for name in (raw.get("required") or []) if name in commands]
+    checks = _default_checks()
+    for name, enabled in (raw.get("checks") or {}).items():
+        if name in checks:
+            checks[name] = bool(enabled)
+    required = [
+        name
+        for name in (raw.get("required") or [])
+        if name in commands or (name in checks and checks[name])
+    ]
+    diff_base = raw.get("diff_base") or None
     timeout = int(raw.get("timeout", 300))
-    return Config(commands=commands, required=required, timeout=timeout), source
+    return Config(commands=commands, required=required, checks=checks, diff_base=diff_base, timeout=timeout), source
 
 
 def autodetect_commands(root: Path) -> dict[str, str]:
@@ -142,6 +160,12 @@ commands:
   build: {build}
   lint: {lint}
   typecheck: {typecheck}
+
+# Built-in scanners that need no command. They inspect what a change ADDED
+# (git diff + untracked files) — not the whole tree.
+checks:
+  no_secrets: true       # added lines must not contain API keys / tokens / private keys
+  no_new_todos: false    # added lines must not introduce TODO / FIXME / HACK markers
 
 # Checks that MUST pass for `veridict run` to exit 0 (use it as a CI / commit gate).
 required:
