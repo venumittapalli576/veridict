@@ -35,13 +35,15 @@ def _main(
     """Don't trust your AI agent's summary — verify it."""
 
 
-def _emit(report: Report, json_out: bool, markdown: bool, verbose: bool) -> None:
+def _emit(report: Report, json_out: bool, markdown: bool, verbose: bool, json_file: Path | None = None) -> None:
     if json_out:
         typer.echo(render_json(report))
     elif markdown:
         typer.echo(render_markdown(report))
     else:
         render_terminal(report, show_output=verbose)
+    if json_file is not None:
+        json_file.write_text(render_json(report) + "\n", encoding="utf-8")
 
 
 def _finish(report: Report, strict: bool) -> None:
@@ -66,6 +68,9 @@ def check(
     diff_base: str | None = typer.Option(
         None, "--diff-base", help="Git ref to diff against (e.g. origin/main) — scanners check everything added since."
     ),
+    json_file: Path | None = typer.Option(
+        None, "--json-file", help="Also write the JSON report to this file (regardless of stdout format)."
+    ),
 ) -> None:
     """Verify the claims in an AI agent's summary against reality.
 
@@ -84,7 +89,7 @@ def check(
     if diff_base:
         config.diff_base = diff_base
     report = verify_transcript(text, config, str(path))
-    _emit(report, json_out, markdown, verbose)
+    _emit(report, json_out, markdown, verbose, json_file)
     _finish(report, strict)
 
 
@@ -98,6 +103,9 @@ def run(
     diff_base: str | None = typer.Option(
         None, "--diff-base", help="Git ref to diff against (e.g. origin/main) — scanners check everything added since."
     ),
+    json_file: Path | None = typer.Option(
+        None, "--json-file", help="Also write the JSON report to this file (regardless of stdout format)."
+    ),
 ) -> None:
     """Run every configured ground-truth check (a CI / pre-commit gate).
 
@@ -108,7 +116,7 @@ def run(
     if diff_base:
         config.diff_base = diff_base
     report = run_project(config, str(path))
-    _emit(report, json_out, markdown, verbose)
+    _emit(report, json_out, markdown, verbose, json_file)
     _finish(report, strict)
 
 

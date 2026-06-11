@@ -95,7 +95,8 @@ def test_placeholder_credentials_are_ignored(repo):
 
 
 def test_hardcoded_credential_detected(repo):
-    (repo / "cfg.py").write_text('db_password = "hunter2hunter2hunter2"\n')
+    fake = "hunter2" * 3  # assembled so the literal never sits in this repo
+    (repo / "cfg.py").write_text(f'db_password = "{fake}"\n')
     findings = find_secrets(collect_added_lines(str(repo)))
     assert len(findings) == 1
     assert "hardcoded credential" in findings[0]

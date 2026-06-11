@@ -1,0 +1,23 @@
+name: Veridict
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Same version the action sets up, so the dev deps land in the same
+      # interpreter that runs `veridict run`.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --quiet -e ".[dev]"
+      # Veridict verifies its own PRs with its own action.
+      - uses: ./
