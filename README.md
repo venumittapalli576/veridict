@@ -14,6 +14,12 @@ It doesn't trust the transcript. It re-runs the tests, looks at the disk, and as
 
 </div>
 
+<p align="center">
+  <img src="docs/demo.svg" alt="Veridict catching an AI agent's false claims: a missing file, a failing test suite, and a leaked AWS key" width="100%">
+</p>
+
+<p align="center"><sub>Real output — regenerate it yourself with <code>python scripts/make_demo_svg.py</code>. Nothing in the image is mocked.</sub></p>
+
 ---
 
 ## The problem
@@ -86,6 +92,41 @@ cd veridict && pip install -e ".[dev]"
 
 Once published to PyPI: `pipx install veridict` (or zero-install with `uvx veridict ...`).
 
+## Use it on your AI agent's PRs
+
+AI agents open pull requests claiming "all tests pass." Make them prove it — three lines:
+
+```yaml
+# .github/workflows/veridict.yml
+name: Veridict
+on: pull_request
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: venumittapalli576/veridict@v0
+```
+
+On every PR, Veridict re-runs your configured checks, diff-scans **everything the
+PR added** for leaked secrets and new TODO markers, posts a sticky comment with
+the verdict, and fails the job on false claims. ([This repo runs it on its own
+PRs.](.github/workflows/veridict.yml))
+
+| Input | Default | What it does |
+| --- | --- | --- |
+| `path` | `.` | Directory to verify |
+| `transcript` | – | Path to an agent summary → verifies its claims instead of running all checks |
+| `diff-base` | PR base | Ref the secret/TODO scanners diff against |
+| `strict` | `false` | Also fail on unverifiable claims |
+| `comment` | `true` | Post/update the sticky PR comment |
+| `fail-on-false-claims` | `true` | Fail the job on a guilty verdict |
+
+Outputs: `trust-score`, `exit-code`, `report-md`, `report-json`.
+
 ## Quickstart
 
 ```bash
@@ -126,7 +167,14 @@ that were actually decided — so it never flatters the agent.
 | "mypy passes" / "no type errors" | Runs `typecheck` |
 | "created `path/to/file.py`" | Checks the file exists on disk |
 | "updated `config.py`" | Asks `git status` whether the file actually changed |
+| "no secrets were committed" | Diff-scans every **added** line for key/token shapes (AWS, GitHub, OpenAI, Anthropic, Slack, Stripe, Google, private keys, hardcoded credentials) — findings are masked, so the report never re-leaks one |
+| "removed all the TODOs" | Diff-scans added lines for new `TODO` / `FIXME` / `HACK` markers |
 | "no errors" / vague success | Reported `unverifiable` — by design, not guessed |
+
+The diff scanners look only at what a change **added** (git diff + untracked files),
+never the whole tree — the question is "did the *agent* introduce this?". Use
+`--diff-base origin/main` to scan everything a branch added (the GitHub Action
+does this automatically against the PR base).
 
 ## Configuration
 
@@ -140,6 +188,11 @@ commands:
   build: null
   lint: "ruff check ."
   typecheck: "mypy ."
+
+# Built-in diff scanners — no command needed; they inspect what a change ADDED.
+checks:
+  no_secrets: true
+  no_new_todos: false
 
 # Checks that MUST pass for `veridict run` to exit 0.
 required:
@@ -163,11 +216,11 @@ timeout: 300
       pass_filenames: false
 ```
 
-**GitHub Actions** — post the verdict on the PR:
+**GitHub Actions** — use [the first-class action](#use-it-on-your-ai-agents-prs), which
+posts the verdict as a sticky PR comment:
 
 ```yaml
-- run: pipx install veridict
-- run: veridict run --md >> "$GITHUB_STEP_SUMMARY"
+- uses: venumittapalli576/veridict@v0
 ```
 
 ## Output formats
@@ -177,6 +230,8 @@ timeout: 300
 | *(none)* | Rich terminal report | humans |
 | `--json` | Machine-readable JSON | scripts, dashboards |
 | `--md` | Markdown tables | PR comments, job summaries |
+| `--json-file PATH` | JSON report to a file, alongside any stdout format | CI that wants both |
+| `--diff-base REF` | Scan everything added since `REF`, not just pending changes | whole-branch / PR scans |
 | `--strict` | Treat `unverifiable` as failure too | paranoid CI |
 | `--verbose` | Show captured output for failures | debugging |
 
@@ -201,10 +256,11 @@ the one people actually keep around.
 
 ## Roadmap
 
+- [x] First-class GitHub Action with automatic PR comments *(v0.2.0)*
+- [x] More verifiers: "no secrets committed", "no new TODOs" *(v0.2.0)*
 - [ ] Publish to PyPI
-- [ ] First-class GitHub Action with automatic PR comments
 - [ ] A structured claims format agents can emit directly (no extraction needed)
-- [ ] More verifiers: "coverage didn't drop", "no secrets committed", "no new TODOs"
+- [ ] More verifiers: "coverage didn't drop"
 - [ ] Plugin API for custom verifiers
 
 ## Contributing
