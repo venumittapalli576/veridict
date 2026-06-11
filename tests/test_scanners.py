@@ -81,6 +81,21 @@ def test_diff_base_covers_committed_changes(repo):
     assert "AWS access key ID" in findings[0]
 
 
+def test_diff_base_falls_back_when_merge_base_missing(repo):
+    # An orphan branch shares no history with main, so `main...HEAD` has no
+    # merge-base (like a shallow CI clone) and the two-dot fallback must kick in.
+    _git(repo, "checkout", "--orphan", "detached-history")
+    _git(repo, "rm", "-rf", "--cached", ".")
+    (repo / "base.py").unlink()
+    (repo / "orphan.py").write_text("# TODO: orphan work\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "orphan")
+
+    scan = collect_added_lines(str(repo), base="main")
+    assert scan.error is None
+    assert any("orphan.py" in f for f in find_new_todos(scan))
+
+
 def test_secret_is_masked_in_findings(repo):
     (repo / "cfg.py").write_text(f'gh = "{FAKE_GH_TOKEN}"\n')
     findings = find_secrets(collect_added_lines(str(repo)))

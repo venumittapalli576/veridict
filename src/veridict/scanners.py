@@ -117,6 +117,11 @@ def collect_added_lines(cwd: str, base: str | None = None, timeout: int = 300) -
     if base:
         code, out = _git(["diff", f"{base}...HEAD", "--unified=0", "--no-color"], cwd, timeout)
         if code != 0:
+            # Three-dot needs a merge-base, which shallow CI clones often lack.
+            # A two-dot tree diff doesn't, and matches it when base is the
+            # branch point (the typical PR case).
+            code, out = _git(["diff", base, "HEAD", "--unified=0", "--no-color"], cwd, timeout)
+        if code != 0:
             return DiffScan(error=f"git diff against `{base}` failed: {out.strip()[:200]}")
         scan.lines.extend(_parse_added(out))
 
