@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "veridict"
-version = "0.1.0"
+version = "0.2.0"
 description = "Independently verify what your AI coding agent claims it did — and render a verdict."
 readme = "README.md"
 requires-python = ">=3.10"
