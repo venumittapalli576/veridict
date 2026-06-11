@@ -124,6 +124,7 @@ PRs.](.github/workflows/veridict.yml))
 | `strict` | `false` | Also fail on unverifiable claims |
 | `comment` | `true` | Post/update the sticky PR comment |
 | `fail-on-false-claims` | `true` | Fail the job on a guilty verdict |
+| `pin-config` | `true` | Take `.veridict.yaml` from the base, so a PR can't weaken its own verification |
 
 Outputs: `trust-score`, `exit-code`, `report-md`, `report-json`.
 
