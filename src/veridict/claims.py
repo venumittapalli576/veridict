@@ -18,8 +18,9 @@ from veridict.models import Claim, ClaimType
 
 # A filename token: optional path segments + a stem + an *alphabetic* extension.
 # Requiring an alphabetic extension keeps version strings like "3.12" or "v0.1"
-# from being mistaken for files.
-_FILE = r"(?:[\w-]+[\\/])*[\w.-]*[A-Za-z0-9]\.[A-Za-z]{1,8}"
+# from being mistaken for files; the trailing lookahead keeps method calls like
+# `x.split('=')` from being mistaken for them too.
+_FILE = r"(?:[\w-]+[\\/])*[\w.-]*[A-Za-z0-9]\.[A-Za-z]{1,8}(?!\w*\s*\()"
 _WRAP = r"[`'\"(\[]?"  # optional opening quote/bracket around a filename
 
 # Simple, target-less claims: (type, compiled pattern). Case-insensitive.

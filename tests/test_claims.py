@@ -40,6 +40,14 @@ def test_created_file_not_double_counted_as_modified():
     assert (ClaimType.FILE_MODIFIED, "foo.py") not in keys
 
 
+def test_method_calls_are_not_files():
+    # Found by the benchmark: an agent describing a code edit must not have
+    # `x.split` extracted as a filename claim.
+    text = "Changed `x.split('=')[0]` and `x.split('=')[1]` to a single `pair.split('=', 1)` call."
+    file_claims = [c for c in extract_claims(text) if c.type in (ClaimType.FILE_EXISTS, ClaimType.FILE_MODIFIED)]
+    assert file_claims == []
+
+
 def test_version_strings_are_not_files():
     # Numeric "extensions" must not be mistaken for filenames.
     claims = extract_claims("Updated the dependency to 3.12.1 and bumped to v0.2 today.")
