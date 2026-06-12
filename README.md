@@ -191,6 +191,8 @@ commands:
   typecheck: "mypy ."
 
 # Built-in diff scanners — no command needed; they inspect what a change ADDED.
+# An enabled no_secrets always gates (non-zero exit on a finding) — opting out
+# means disabling the check, not leaving it off the required list.
 checks:
   no_secrets: true
   no_new_todos: false
