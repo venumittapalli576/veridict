@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-06-12
+
+### Fixed
+- **A leaked credential can no longer exit 0.** An enabled `no_secrets` check
+  now always gates `veridict run` (and therefore the GitHub Action), even when
+  not listed under `required:`. Opting out means disabling the check.
+- **Claim extractor: method calls are not filenames.** An agent describing a
+  code edit (`x.split('=')`) was extracted as a `file_modified` claim about a
+  file named `x.split` — the only false verdict in the benchmark's first
+  sweep was Veridict's own bug, not an agent's lie.
+
+### Added
+- `benchmark/` — an agent-agnostic harness that fact-checks coding-agent
+  summaries with Veridict, plus the first published sweep: 15 runs × 3 Claude
+  models, 25 claims, 0 false. See `benchmark/README.md` for the two findings
+  that mattered more than the headline.
+- GitHub Action: `pin-config` input (default on) takes `.veridict.yaml` from
+  the diff base, so a PR can't weaken its own verification.
+
 ## [0.2.0] — 2026-06-11
 
 The "make them prove it" release: verify AI-agent PRs in CI, and catch the two
@@ -48,5 +67,6 @@ Initial release.
 - A 0–100 **trust score** plus terminal, `--json`, and `--md` output formats.
 - Non-zero exit code when a claim is false or a required check fails.
 
+[0.2.1]: https://github.com/venumittapalli576/veridict/releases/tag/v0.2.1
 [0.2.0]: https://github.com/venumittapalli576/veridict/releases/tag/v0.2.0
 [0.1.0]: https://github.com/venumittapalli576/veridict/releases/tag/v0.1.0

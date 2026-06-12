@@ -63,7 +63,7 @@ def load_config(path: Path) -> tuple[Config, Path | None]:
     if source is None:
         commands = autodetect_commands(Path(path))
         required = ["tests"] if "tests" in commands else []
-        return Config(commands=commands, required=required), None
+        return Config(commands=commands, required=_gate_secrets(required, _default_checks())), None
 
     raw = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
     commands = {
@@ -82,7 +82,22 @@ def load_config(path: Path) -> tuple[Config, Path | None]:
     ]
     diff_base = raw.get("diff_base") or None
     timeout = int(raw.get("timeout", 300))
-    return Config(commands=commands, required=required, checks=checks, diff_base=diff_base, timeout=timeout), source
+    return Config(
+        commands=commands,
+        required=_gate_secrets(required, checks),
+        checks=checks,
+        diff_base=diff_base,
+        timeout=timeout,
+    ), source
+
+
+def _gate_secrets(required: list[str], checks: dict[str, bool]) -> list[str]:
+    """A leaked credential must never exit 0: an enabled ``no_secrets`` check
+    always gates. Opting out is disabling the check — a deliberate choice —
+    not forgetting to list it under ``required``."""
+    if checks.get("no_secrets") and "no_secrets" not in required:
+        return [*required, "no_secrets"]
+    return required
 
 
 def autodetect_commands(root: Path) -> dict[str, str]:
@@ -162,7 +177,8 @@ commands:
   typecheck: {typecheck}
 
 # Built-in scanners that need no command. They inspect what a change ADDED
-# (git diff + untracked files) — not the whole tree.
+# (git diff + untracked files) — not the whole tree. An enabled no_secrets
+# always gates (fails `veridict run`) — disable it to opt out.
 checks:
   no_secrets: true       # added lines must not contain API keys / tokens / private keys
   no_new_todos: false    # added lines must not introduce TODO / FIXME / HACK markers
