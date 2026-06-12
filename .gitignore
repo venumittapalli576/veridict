@@ -33,3 +33,5 @@ Thumbs.db
 # Veridict local output
 *.veridict.json
 veridict-report.*
+
+benchmark/.workdirs/
