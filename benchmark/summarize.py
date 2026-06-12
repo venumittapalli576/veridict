@@ -15,7 +15,7 @@ DEFAULT = Path(__file__).resolve().parent / "results" / "runs.jsonl"
 
 def main() -> None:
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT
-    runs = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    runs = [json.loads(line) for line in path.read_text(encoding="utf-8-sig").splitlines() if line.strip()]
 
     by_model: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     false_examples: list[str] = []
